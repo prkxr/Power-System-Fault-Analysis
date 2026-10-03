@@ -1,27 +1,18 @@
 # Symmetrical Component Based Power System Fault Analysis (5-Bus Zbus Version)
 
-A MATLAB/Simulink project for analyzing three-phase and unsymmetrical
-faults in a custom 5-bus transmission network using symmetrical
-components, sequence networks, Ybus/Zbus matrices, parameter studies,
-and Simulink validation.
+A MATLAB/Simulink project for analyzing three-phase and unsymmetrical faults in a custom 5-bus transmission network using symmetrical components, sequence networks, Ybus/Zbus matrices, parameter studies, and Simulink cross-validation.
 
-> **Note:** All network parameters in this project are assumed study
-> parameters and do not represent a real electrical grid.
+> **Note:** All network parameters are assumed study parameters. They do not represent a real grid, and the network is not an IEEE benchmark system.
 
-------------------------------------------------------------------------
+---
 
 ## 1. Project Overview
 
 The project answers the following question:
 
-> Given a multi-bus power system and a fault at any bus, what are the
-> fault currents and post-fault voltages, and how do they change with
-> fault type, fault impedance, grounding, transformer connection, and
-> network configuration?
+> Given a multi-bus power system and a fault at any bus, what are the fault currents and post-fault voltages, and how do they change with fault type, fault impedance, grounding, transformer connection, and network configuration?
 
-The analysis workflow is:
-
-``` text
+```text
 Symmetrical Components
         ↓
 Sequence Networks
@@ -41,739 +32,339 @@ Simulink Cross-Validation
 
 ### Main objectives
 
--   Build positive-, negative-, and zero-sequence Ybus/Zbus matrices.
--   Calculate 3φ, LG, LL, and LLG fault currents at every bus.
--   Transform sequence currents and voltages back into phase quantities.
--   Analyze post-fault voltage profiles.
--   Determine generator and line contributions to a remote fault.
--   Study the effect of fault impedance and generator neutral impedance.
--   Compare Δ--Yg and Yg--Yg transformer zero-sequence behavior.
--   Analyze the effect of removing a transmission line.
--   Cross-check selected analytical results using Simulink/Simscape
-    Electrical.
+- Build positive-, negative-, and zero-sequence Ybus/Zbus matrices.
+- Calculate 3φ, LG, LL, and LLG fault currents at every bus.
+- Transform sequence currents and voltages back into phase quantities.
+- Analyze post-fault voltage profiles.
+- Determine generator and line contributions to a remote fault.
+- Study the effect of fault impedance and generator neutral impedance.
+- Compare Δ–Yg and Yg–Yg transformer zero-sequence behavior.
+- Analyze the effect of removing a transmission line.
+- Cross-check selected analytical results in Simulink/Simscape Electrical.
 
-------------------------------------------------------------------------
+---
 
 ## 2. Network Under Study
 
-The project uses the following custom 5-bus network:
-
-``` text
+```text
 G1 ─(1)─ T1 ─(2)────────(3)────────(4)─ T2 ─(5)─ G2
                  └───────────────────┘
                        Line 2–4
 ```
 
-### Network parameters
+### Network parameters (per unit, 100 MVA base)
 
-  Element     Positive / Negative Sequence   Zero Sequence
-  ----------- ------------------------------ ---------------
-  G1, Bus 1   X1 = j0.15, X2 = j0.17         X0 = j0.05
-  G2, Bus 5   X1 = j0.20, X2 = j0.22         X0 = j0.06
-  T1, 1--2    j0.10                          Δ--Yg
-  T2, 5--4    j0.12                          Δ--Yg
-  Line 2--3   0.02 + j0.10                   0.06 + j0.30
-  Line 3--4   0.02 + j0.08                   0.06 + j0.24
-  Line 2--4   0.03 + j0.12                   0.09 + j0.36
+| Element | Positive / Negative Sequence | Zero Sequence |
+|---|---|---|
+| G1, Bus 1 | X1 = j0.15, X2 = j0.17 | X0 = j0.05 |
+| G2, Bus 5 | X1 = j0.20, X2 = j0.22 | X0 = j0.06 |
+| T1, 1–2 | j0.10 | Δ–Yg |
+| T2, 5–4 | j0.12 | Δ–Yg |
+| Line 2–3 | 0.02 + j0.10 | 0.06 + j0.30 |
+| Line 3–4 | 0.02 + j0.08 | 0.06 + j0.24 |
+| Line 2–4 | 0.03 + j0.12 | 0.09 + j0.36 |
 
 ### Assumptions
 
--   Base power: 100 MVA.
--   Generator buses: 11 kV.
--   Transmission buses: 132 kV.
--   Prefault voltage: 1.0 pu.
--   Loads are neglected.
--   Shunt capacitance is neglected in the analytical MATLAB model.
--   Fault impedance is initially taken as zero for the solid-fault
-    studies.
--   Generator neutral impedances are initially zero.
--   Line zero-sequence impedance is approximately three times the
-    positive-sequence impedance.
--   The system is represented using a Thevenin-equivalent fault model.
+- Base power: 100 MVA.
+- Generator buses (1, 5): 11 kV. Transmission buses (2, 3, 4): 132 kV.
+- Prefault voltage: 1.0 pu everywhere (Thevenin fault model, no load flow).
+- Loads and shunt capacitance are neglected in the analytical model.
+- Fault impedance is zero for solid-fault studies; generator neutral impedances are initially zero.
+- Line negative-sequence impedance equals positive-sequence impedance.
+- Line zero-sequence impedance is three times the positive-sequence impedance.
 
-------------------------------------------------------------------------
+---
 
 ## 3. Per-Unit Bases
 
-The system uses:
+$$S_{base}=100\ \text{MVA},\qquad I_{base}=\frac{S_{base}}{\sqrt{3}\,V_{base}},\qquad I_{actual}=I_{pu}\,I_{base}$$
 
-\[ S\_{base}=100`\text{ MVA}`{=tex} \]
+| Bus | Voltage Base | Current Base |
+|---:|---:|---:|
+| 1 | 11 kV | 5248.6 A |
+| 2 | 132 kV | 437.4 A |
+| 3 | 132 kV | 437.4 A |
+| 4 | 132 kV | 437.4 A |
+| 5 | 11 kV | 5248.6 A |
 
-Current base:
+For Simulink line blocks that need ohms, the 132 kV impedance base is $Z_{base}=132^2/100=174.24\ \Omega$.
 
-\[ I\_{base}=`\frac{S_{base}}{\sqrt{3}V_{base}}`{=tex} \]
-
-The resulting current bases are:
-
-  Bus     Voltage Base   Current Base
-  ----- -------------- --------------
-  1              11 kV       5248.6 A
-  2             132 kV        437.4 A
-  3             132 kV        437.4 A
-  4             132 kV        437.4 A
-  5              11 kV       5248.6 A
-
-Actual current is obtained from:
-
-\[ I\_{actual}=I\_{pu}I\_{base} \]
-
-------------------------------------------------------------------------
+---
 
 ## 4. Symmetrical Components
 
-The phase quantities are decomposed into positive-, negative-, and
-zero-sequence components.
+The operator is $a=e^{j2\pi/3}=1\angle120^\circ$, with $1+a+a^2=0$.
 
-The operator is:
+$$\begin{bmatrix}V_a\\V_b\\V_c\end{bmatrix}=\underbrace{\begin{bmatrix}1&1&1\\1&a^2&a\\1&a&a^2\end{bmatrix}}_{A}\begin{bmatrix}V_0\\V_1\\V_2\end{bmatrix},\qquad A^{-1}=\frac13\begin{bmatrix}1&1&1\\1&a&a^2\\1&a^2&a\end{bmatrix}$$
 
-\[ a=e\^{j2`\pi`{=tex}/3} \]
+The same transformation applies to currents. The implementation was tested with a balanced positive-sequence set, an unbalanced set (round-trip error ~1e-16), and $A\,A^{-1}=I$.
 
-with:
-
-\[ 1+a+a\^2=0 \]
-
-The sequence-to-phase transformation is:
-
-\[
-```{=tex}
-\begin{bmatrix}
-V_a\\
-V_b\\
-V_c
-\end{bmatrix}
-```
-=
-```{=tex}
-\begin{bmatrix}
-1&1&1\\
-1&a^2&a\\
-1&a&a^2
-\end{bmatrix}
-\begin{bmatrix}
-V_0\\
-V_1\\
-V_2
-\end{bmatrix}
-```
-\]
-
-The same transformation is used for currents.
-
-The inverse transformation converts phase quantities back into sequence
-components.
-
-The transformation implementation and reconstruction tests were
-validated using balanced and unbalanced phasors.
-
-------------------------------------------------------------------------
+---
 
 ## 5. Sequence Network Construction
 
-Three sequence networks are constructed:
+- Positive: Y1, Z1. Negative: Y2, Z2. Zero: Y0, Z0. Each $Z=Y^{-1}$.
+- Series elements are added with `addbranch` (adds y to both diagonals, subtracts from off-diagonals). Elements to ground are added with `addshunt`.
+- Lines and transformers are branches in the positive and negative networks. Generators are shunts to ground.
+- Generator zero-sequence shunt is $Z_0+3Z_n$.
 
--   Positive sequence: Y1, Z1
--   Negative sequence: Y2, Z2
--   Zero sequence: Y0, Z0
+### Zero-sequence transformer treatment
 
-The impedance matrices are obtained from:
+- **Δ–Yg:** the Yg (132 kV) side connects to ground through the leakage impedance (a shunt at the HV bus). The delta (generator) side is isolated, so buses 1 and 5 are decoupled from the transmission zero-sequence network.
+- **Yg–Yg:** the transformer is a series branch, so zero-sequence current passes through.
 
-\[ Z=Y\^{-1} \]
-
-### Positive and negative sequence
-
-Lines and transformers are represented as branches in the corresponding
-sequence networks.
-
-Generator sequence impedances are represented as shunt branches to the
-reference node.
-
-### Zero sequence
-
-The zero-sequence network requires special transformer treatment.
-
-For the Δ--Yg transformers used in this project:
-
--   The grounded-wye line side is connected to ground through the
-    transformer leakage impedance.
--   The delta generator side is isolated from the transformer in the
-    zero-sequence network.
--   Therefore, zero-sequence current does not pass directly through the
-    transformer from the generator side.
-
-For comparison, the project also rebuilds the zero-sequence network
-using Yg--Yg transformers, where zero-sequence current can pass through
-the transformer.
-
-------------------------------------------------------------------------
+---
 
 ## 6. Fault Models
 
-For a fault at bus k, the diagonal Zbus elements:
+For a fault at bus k, the diagonal elements $Z_{0,kk}, Z_{1,kk}, Z_{2,kk}$ are used with $V_f=1.0$ pu.
 
-\[ Z\_{0,kk},`\quad `{=tex}Z\_{1,kk},`\quad `{=tex}Z\_{2,kk} \]
+| Fault | Equations |
+|---|---|
+| 3φ | $I_1=\dfrac{V_f}{Z_{1,kk}+Z_f}$, $I_0=I_2=0$ |
+| LG (A-G) | $I_0=I_1=I_2=\dfrac{V_f}{Z_{0,kk}+Z_{1,kk}+Z_{2,kk}+3Z_f}$ |
+| LL (B-C) | $I_1=\dfrac{V_f}{Z_{1,kk}+Z_{2,kk}+Z_f}$, $I_2=-I_1$, $I_0=0$ |
+| LLG (B-C-G) | $Z_p=Z_{2,kk}\parallel(Z_{0,kk}+3Z_f)$, $I_1=\dfrac{V_f}{Z_{1,kk}+Z_p}$, $I_2=-I_1\dfrac{Z_{0,kk}+3Z_f}{Z_{2,kk}+Z_{0,kk}+3Z_f}$, $I_0=-I_1\dfrac{Z_{2,kk}}{Z_{2,kk}+Z_{0,kk}+3Z_f}$ |
 
-are used.
+The factor $3Z_f$ appears because $V_a=Z_fI_a=3Z_fI_0$ and the zero-sequence network carries only $I_0$.
 
-The prefault voltage is:
-
-\[ V_f=1.0 pu \]
-
-### 3-phase fault
-
-\[ I_1=`\frac{V_f}{Z_{1,kk}+Z_f}`{=tex} \]
-
-\[ I_0=I_2=0 \]
-
-### Single-line-to-ground fault
-
-For an A-G fault:
-
-\[ I_0=I_1=I_2= `\frac{V_f}`{=tex} {Z\_{0,kk}+Z\_{1,kk}+Z\_{2,kk}+3Z_f}
-\]
-
-### Line-to-line fault
-
-For a B-C fault:
-
-\[ I_1=`\frac{V_f}{Z_{1,kk}+Z_{2,kk}+Z_f}`{=tex} \]
-
-\[ I_2=-I_1 \]
-
-\[ I_0=0 \]
-
-### Double-line-to-ground fault
-
-For a B-C-G fault:
-
-\[ Z_p= Z\_{2,kk}`\parallel`{=tex}(Z\_{0,kk}+3Z_f) \]
-
-\[ I_1=`\frac{V_f}{Z_{1,kk}+Z_p}`{=tex} \]
-
-\[ I_2= -I_1 `\frac{Z_{0,kk}+3Z_f}`{=tex} {Z\_{2,kk}+Z\_{0,kk}+3Z_f} \]
-
-\[ I_0= -I_1 `\frac{Z_{2,kk}}`{=tex} {Z\_{2,kk}+Z\_{0,kk}+3Z_f} \]
-
-------------------------------------------------------------------------
+---
 
 ## 7. Phase-Current Reconstruction
 
-After calculating sequence currents:
+$$\begin{bmatrix}I_a\\I_b\\I_c\end{bmatrix}=A\begin{bmatrix}I_0\\I_1\\I_2\end{bmatrix}$$
 
-\[
-```{=tex}
-\begin{bmatrix}
-I_a\\
-I_b\\
-I_c
-\end{bmatrix}
-```
-= A
-```{=tex}
-\begin{bmatrix}
-I_0\\
-I_1\\
-I_2
-\end{bmatrix}
-```
-\]
+Boundary-condition checks pass for every fault type: 3φ has equal phase magnitudes and $I_0=I_2=0$; LG has $I_b=I_c=0$; LL has $I_a=0$, $I_b=-I_c$, $I_0=0$; LLG has $I_a=0$ and $I_b+I_c=3I_0$.
 
-where:
-
-\[ A=
-```{=tex}
-\begin{bmatrix}
-1&1&1\\
-1&a^2&a\\
-1&a&a^2
-\end{bmatrix}
-```
-\]
-
-This makes it possible to report the actual phase currents for each
-fault type.
-
-------------------------------------------------------------------------
+---
 
 ## 8. Post-Fault Voltage Calculation
 
-For a fault at bus k, the sequence voltage at bus i is calculated using
-the corresponding Zbus column.
+For a fault at bus k, at every bus i:
 
-Positive sequence:
+$$V_{1,i}=V_f-Z_1(i,k)I_1,\qquad V_{2,i}=-Z_2(i,k)I_2,\qquad V_{0,i}=-Z_0(i,k)I_0$$
 
-\[ V\_{1i}=V_f-Z_1(i,k)I_1 \]
+The sequence voltages are transformed back with $A$.
 
-Negative sequence:
+---
 
-\[ V\_{2i}=-Z_2(i,k)I_2 \]
+## 9. Fault-Level Results
 
-Zero sequence:
+Solid faults, maximum phase current.
 
-\[ V\_{0i}=-Z_0(i,k)I_0 \]
+| Bus | 3φ (pu) | 3φ (kA) | LG (kA) | LL (kA) | LLG (kA) | 3φ MVA |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 8.697 | 45.647 | 53.807 | 37.467 | 53.904 | 869.69 |
+| 2 | 6.547 | 2.864 | 3.336 | 2.398 | 3.278 | 654.70 |
+| 3 | 5.377 | 2.352 | 2.291 | 1.983 | 2.391 | 537.73 |
+| 4 | 6.224 | 2.722 | 3.133 | 2.286 | 3.068 | 622.38 |
+| 5 | 7.259 | 38.102 | 45.399 | 31.693 | 45.030 | 725.95 |
 
-The sequence voltages are then transformed back to phase voltages.
+3φ MVA = $S_{base}V_f/|Z_{1,kk}|$.
 
-------------------------------------------------------------------------
-
-# 9. Fault-Level Results
-
-The following table contains the calculated solid-fault currents for all
-five buses.
-
-    Bus   3φ (kA)   LG (kA)   LL (kA)   LLG (kA)   3φ Fault MVA
-  ----- --------- --------- --------- ---------- --------------
-      1    45.647    53.807    37.467     53.904         869.69
-      2     2.864     3.336     2.398      3.278         654.70
-      3     2.352     2.291     1.983      2.391         537.73
-      4     2.722     3.133     2.286      3.068         622.38
-      5    38.102    45.399    31.693     45.030         725.95
+LG / 3φ current ratio: 1.179, 1.165, 0.974, 1.151, 1.192 (buses 1–5).
 
 ### Observations
 
--   Generator buses have substantially higher fault currents because of
-    their lower equivalent impedances and lower voltage-base conversion
-    to actual current.
--   At buses 1 and 5, LG fault currents exceed the corresponding 3φ
-    fault currents.
--   This behavior is associated with the relatively low zero-sequence
-    impedance at the generator buses.
--   The transmission-bus fault currents are considerably lower in
-    absolute kA because their current base is only approximately 437.4
-    A.
+- Buses 1 and 5 show tens of kA only because their current base (5248.6 A) is 12 times larger than at 132 kV. Per-unit values are the fair cross-bus comparison.
+- **LG exceeds 3φ at buses 1, 2, 4 and 5.** Only Bus 3 has LG below 3φ, because $Z_{0}(3,3)=0.189$ is large there.
+- LG exceeds 3φ when $Z_0 < Z_1$ at the fault bus, since $3/(Z_0+Z_1+Z_2)>1/Z_1$.
+- LLG gives the highest maximum phase current at buses 1 and 3. At buses 2, 4 and 5, LG is the highest.
 
-------------------------------------------------------------------------
+---
 
-# 10. Post-Fault Voltage Profile
+## 10. Post-Fault Voltage Profile
 
-A fault at Bus 3 was used to study the voltage response across all five
-buses.
+Fault at Bus 3, voltage magnitudes in pu.
 
-### 3φ fault at Bus 3
+**3φ fault** (all phases equal)
 
-    Bus   \|Va\|   \|Vb\|   \|Vc\|
-  ----- -------- -------- --------
-      1   0.5591   0.5591   0.5591
-      2   0.2675   0.2675   0.2675
-      3        0        0        0
-      4   0.2272   0.2272   0.2272
-      5   0.5154   0.5154   0.5154
+| Bus | \|Va\| | \|Vb\| | \|Vc\| |
+|---:|---:|---:|---:|
+| 1 | 0.5591 | 0.5591 | 0.5591 |
+| 2 | 0.2675 | 0.2675 | 0.2675 |
+| 3 | 0 | 0 | 0 |
+| 4 | 0.2272 | 0.2272 | 0.2272 |
+| 5 | 0.5154 | 0.5154 | 0.5154 |
 
-For unbalanced faults, the three phase voltages become unequal,
-illustrating the different effects of positive-, negative-, and
-zero-sequence components.
+**A-G fault:** Va collapses at Bus 3 (0.4227 at Bus 2); Vb and Vc stay near 0.93–1.04 pu.
+**B-C fault:** Va stays ≈1.03 pu; Vb and Vc drop to ≈0.51 pu at Bus 3.
+**B-C-G fault:** Vb and Vc go to 0 at Bus 3; Va stays ≈1.03 pu.
 
-------------------------------------------------------------------------
+---
 
-# 11. Generator and Line Contribution Analysis
+## 11. Generator and Line Contribution Analysis
 
-A 3φ fault at Bus 3 was used for contribution analysis.
+3φ fault at Bus 3, positive sequence.
 
-### Generator contributions
+| Source | Current (pu) | Magnitude (pu) | At generator terminal (11 kV) |
+|---|---|---:|---:|
+| G1 | 0.1679 − j2.9432 | 2.9480 | 15.47 kA |
+| G2 | 0.1247 − j2.4262 | 2.4294 | 12.75 kA |
 
-#### G1
+$I_{G1}+I_{G2}=0.2926-j5.3694=I_f$ exactly **in per unit**. The kA values are at the 11 kV generator buses, so they do not sum to the 2.352 kA fault current at 132 kV. On the 132 kV side the contributions are about 1.29 kA and 1.06 kA.
 
-Positive-sequence current:
+| Branch | Current (pu) | Magnitude (pu) | Current (kA) |
+|---|---|---:|---:|
+| Line 2–3 | 0.1045 − j2.6210 | 2.6231 | 1.147 |
+| Line 3–4 | −0.1881 + j2.7483 | 2.7548 | 1.205 |
+| Line 2–4 | 0.0634 − j0.3222 | 0.3284 | 0.144 |
 
-\[ I\_{G1}=0.1679-j2.9432 pu \]
+The two currents arriving at Bus 3 (from lines 2–3 and 4–3) sum to the fault current.
 
-Magnitude:
+---
 
-\[ \|I\_{G1}\|=2.9480 pu \]
+## 12. Impedance Studies
 
-At the 11-kV generator terminal:
+### 12.1 Fault current vs fault impedance
+$Z_f$ swept from 0 to 0.5 pu for all four fault types. Current falls as $Z_f$ rises. The plotted quantity is the *maximum phase current*, which for LLG can vary non-monotonically at small $Z_f$ because the phase composition changes.
 
-\[ I\_{G1}`\approx15.473`{=tex}`\text{ kA}`{=tex} \]
+### 12.2 LG current vs generator neutral impedance
+$Z_n$ swept from 0 to 0.5 pu. LG current at **Bus 1 falls strongly** as $Z_n$ increases. LG current at **Bus 3 is flat** (≈5.238 pu) because the Δ windings isolate the generator neutral from the transmission zero-sequence network.
 
-#### G2
+### 12.3 Δ–Yg vs Yg–Yg
 
-\[ I\_{G2}=0.1247-j2.4262 pu \]
+| Bus | Δ–Yg (pu) | Yg–Yg (pu) | Δ–Yg (kA) | Yg–Yg (kA) | Δ vs Yg |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 10.2516 | 10.4129 | 53.807 | 54.654 | −1.57% |
+| 2 | 7.6266 | 7.0562 | 3.336 | 3.086 | +7.48% |
+| 3 | 5.2380 | 4.9989 | 2.291 | 2.187 | +4.56% |
+| 4 | 7.1626 | 6.6279 | 3.133 | 2.899 | +7.47% |
+| 5 | 8.6496 | 8.8155 | 45.399 | 46.270 | −1.92% |
 
-Magnitude:
+Only the zero-sequence network differs between the two cases. The Yg–Yg Y0 matrix has off-diagonal entries (+j10 for 1–2 and +j8.33 for 5–4) that are zero for Δ–Yg.
 
-\[ \|I\_{G2}\|=2.4294 pu \]
+---
 
-At the 11-kV generator terminal:
+## 13. Line-Outage Study
 
-\[ I\_{G2}`\approx12.751`{=tex}`\text{ kA}`{=tex} \]
+Line 2–4 removed, sequence networks rebuilt.
 
-The two generator contributions add exactly to the calculated fault
-current in per-unit terms.
+| Bus | Base 3φ (kA) | Outage 3φ (kA) | Change |
+|---:|---:|---:|---:|
+| 1 | 45.647 | 43.704 | −4.26% |
+| 2 | 2.864 | 2.620 | −8.52% |
+| 3 | 2.352 | 2.340 | −0.52% |
+| 4 | 2.722 | 2.377 | −12.68% |
+| 5 | 38.102 | 35.743 | −6.19% |
 
-### Line currents for the Bus-3 fault
+The fault level drops at every bus, with the largest change at Bus 4.
 
-  Branch      Current (pu)          Magnitude (pu)   Current (kA)
-  ----------- ------------------- ---------------- --------------
-  Line 2--3   0.1045 − j2.6210              2.6231          1.147
-  Line 3--4   −0.1881 + j2.7483             2.7548          1.205
-  Line 2--4   0.0634 − j0.3222              0.3284          0.144
+---
 
-The generator and branch contributions satisfy the Bus-3 current
-balance.
+## 14. Simulink Validation
 
-------------------------------------------------------------------------
+Model: Three-Phase Source (Yg, 11 kV), Three-Phase Transformer (Two Windings, D1–Yg, pu parameters split equally between windings), Three-Phase PI Section Line (R and L converted to ohms using $Z_{base}=174.24\ \Omega$, 1 km, C = 1e-7 F/km), Three-Phase Fault, Three-Phase V-I Measurement, `powergui` in Phasor 60 Hz.
 
-# 12. Impedance Studies
+**Phasor values in this mode are peak values, so divide by √2 to compare with the RMS analytical results.**
 
-## 12.1 Fault current versus fault impedance
+### 14.1 Positive-sequence impedance at Bus 3
 
-Fault current was evaluated as fault impedance (Z_f) was increased from:
+Measured with `power_zmeter` (impedance block between phases A and B, multiplication factor 0.5, fault disabled).
 
-\[ 0`\rightarrow0.5`{=tex} pu \]
+| | R (Ω) | X (Ω) | \|Z\| (Ω) |
+|---|---:|---:|---:|
+| MATLAB | 1.763 | 32.355 | 32.403 |
+| Simulink | 1.777 | 32.422 | 32.471 |
 
-for:
+Magnitude difference ≈ **0.21%**.
 
--   3φ
--   LG
--   LL
--   LLG
+### 14.2 3φ fault at Bus 3
+MATLAB 2.352 kA RMS; Simulink 3.328 kA peak = 2.353 kA RMS. Difference ≈ **0.04%**.
 
-The general trend is a reduction in fault current as fault impedance
-increases.
+### 14.3 LG fault at Bus 3
+MATLAB 2.291 kA RMS; Simulink 3.300 kA peak = 2.334 kA RMS. Difference ≈ **1.9%**. Phases B and C are negligible (<0.1 A).
 
-------------------------------------------------------------------------
+### 14.4 LLG fault at Bus 4
 
-## 12.2 LG current versus generator neutral impedance
+The analytical reference must be the **Bus 4** result (7.015 pu and 6.949 pu in phases B and C).
 
-Generator neutral impedance (Z_n) was varied from:
+| Phase | MATLAB RMS | Simulink RMS | Difference |
+|---|---:|---:|---:|
+| A | 0 | ≈0 | – |
+| B | 3.068 kA | 3.078 kA | +0.3% |
+| C | 3.039 kA | 3.051 kA | +0.4% |
 
-\[ 0`\rightarrow0.5`{=tex} pu \]
+| Sequence | MATLAB RMS | Simulink RMS |
+|---|---:|---:|
+| I0 | 1.323 kA | 1.304 kA |
+| I1 | 2.002 kA | 2.014 kA |
+| I2 | 0.679 kA | 0.710 kA |
 
-at:
+> **Correction note:** an earlier version of this validation compared the Bus 4 Simulink result with the Bus 3 analytical LLG values (2.391 kA), which gave an apparent 28–36% error. That was a wrong reference, not a modeling limitation.
 
--   Bus 1
--   Bus 3
+---
 
-The study demonstrates that generator-bus LG faults are much more
-sensitive to neutral grounding impedance than faults at transmission
-buses separated from the generator by Δ--Yg transformers.
+## 15. Validation Summary
 
-------------------------------------------------------------------------
+| Validation | Result |
+|---|---|
+| Sequence transformation round trip | Passed |
+| Ybus/Zbus symmetry, $YZ=I$ | Passed |
+| Independent Bus-3 Thevenin check | Passed |
+| Fault boundary conditions (4 types) | Passed |
+| Positive-sequence impedance (Simulink) | 0.21% |
+| 3φ at Bus 3 | 0.04% |
+| LG at Bus 3 | 1.9% |
+| LLG at Bus 4 | ≈0.3% |
 
-## 12.3 Δ--Yg versus Yg--Yg transformer connection
+---
 
-LG fault current comparison:
+## 16. Requirements
 
-    Bus   Δ--Yg (pu)   Yg--Yg (pu)   Δ--Yg (kA)   Yg--Yg (kA)
-  ----- ------------ ------------- ------------ -------------
-      1      10.2516       10.4129       53.807        54.654
-      2       7.6266        7.0562        3.336         3.086
-      3       5.2380        4.9989        2.291         2.187
-      4       7.1626        6.6279        3.133         2.899
-      5       8.6496        8.8155       45.399        46.270
+- MATLAB R2021a or later, Simulink, Simscape, Simscape Electrical (Specialized Power Systems).
+- Familiarity with phasors, per-unit systems, Ybus/Zbus, symmetrical components, and basic Simulink.
 
-This demonstrates that transformer zero-sequence connectivity can
-materially change ground-fault current.
+---
 
-------------------------------------------------------------------------
+## 17. Key Engineering Insights
 
-# 13. Line-Outage Study
+1. **Zbus is convenient:** one function handles any fault at any bus using $Z_{kk}$ and column k.
+2. **Fault type sets the sequence interconnection:** 3φ is positive only; LG is all three in series; LL is positive and negative; LLG is positive in series with negative ∥ zero.
+3. **Zero-sequence connectivity controls ground faults:** Δ–Yg isolates generator neutrals from the transmission buses.
+4. **Ground faults can exceed 3φ faults** when the fault-bus zero-sequence impedance is lower than the positive-sequence impedance.
+5. **Topology matters:** removing line 2–4 lowers fault level at every bus.
+6. **Per-unit** lets 11 kV and 132 kV parts share one base, with actual currents recovered via each bus's current base.
+7. **Cross-validation pitfalls:** unit conversion of line parameters, peak vs RMS in phasor mode, and choosing the matching fault bus for the reference value.
 
-The optional outage study removes the 2--4 transmission line and
-rebuilds the sequence networks.
+---
 
-### 3φ fault-current comparison
+## 18. Limitations
 
-    Bus   Base (kA)   Line 2--4 Out (kA)    Change
-  ----- ----------- -------------------- ---------
-      1      45.647               43.704    −4.26%
-      2       2.864                2.620    −8.52%
-      3       2.352                2.340    −0.52%
-      4       2.722                2.377   −12.68%
-      5      38.102               35.743    −6.19%
+- Prefault voltage fixed at 1.0 pu; no load flow; loads neglected.
+- Shunt capacitance neglected analytically (Simulink uses a very small value because the block requires it).
+- Constant sequence impedances; assumed generator data.
+- The Simulink Three-Phase Source takes one series R-L impedance, so it cannot set Z1, Z2 and Z0 independently. This has little effect here because the Δ windings block generator Z0 for faults at buses 2–4. A Z2 mismatch (source uses the positive-sequence value) is a plausible contributor to the ~1.9% LG difference.
+- Only three Simulink cases were compared.
 
-The largest change occurs at Bus 4, where the 3φ fault current decreases
-by approximately 12.7%.
+Out of scope: relay coordination, CT saturation, protection schemes, arc models, EMT simulation, IEEE benchmark systems.
 
-------------------------------------------------------------------------
+---
 
-# 14. Simulink Validation
+## 19. Recommended Figures
 
-The analytical model was cross-checked using a Simulink/Simscape
-Electrical model containing:
+1. Sequence-transformation validation phasors.
+2. Fault-level table or heatmap.
+3. Phase-current phasors for representative faults.
+4. Post-fault voltage profiles (four fault types).
+5. Generator and line contribution to the Bus-3 fault.
+6. Fault current vs $Z_f$.
+7. LG current vs $Z_n$.
+8. Δ–Yg vs Yg–Yg LG comparison.
+9. Line-outage comparison.
+10. MATLAB vs Simulink comparison.
 
--   Three-Phase Source blocks
--   Three-Phase Transformer (Two Windings) blocks
--   Δ--Yg transformer configuration
--   Three-Phase PI Section Line blocks
--   Three-Phase Fault block
--   Three-Phase V-I Measurement
--   `powergui` in Phasor 60 Hz mode
+---
 
-## 14.1 Positive-sequence impedance validation
+## 20. Technologies Used
 
-The analytical positive-sequence impedance seen from Bus 3 was:
+MATLAB, Simulink, Simscape Electrical (Specialized Power Systems), Ybus/Zbus analysis, symmetrical components, per-unit system, sequence networks.
 
-\[ Z\_{1,`\text{MATLAB}`{=tex}}
-`\approx1.763`{=tex}+j32.355 `\Omega`{=tex} \]
-
-Using the `powergui` impedance measurement:
-
-\[ Z\_{1,`\text{Simulink}`{=tex}} =1.7773+j32.4225 `\Omega`{=tex} \]
-
-Magnitudes:
-
-\[ \|Z\_{1,`\text{MATLAB}`{=tex}}\|`\approx32.403`{=tex} `\Omega`{=tex}
-\]
-
-\[
-\|Z\_{1,`\text{Simulink}`{=tex}}\|`\approx32.471`{=tex} `\Omega`{=tex}
-\]
-
-Difference:
-
-\[ `\boxed{\approx0.21\%}`{=tex} \]
-
-This provides strong validation of the positive-sequence network
-representation.
-
-------------------------------------------------------------------------
-
-## 14.2 3φ fault at Bus 3
-
-MATLAB analytical result:
-
-\[ I_f`\approx2.352`{=tex}`\text{ kA RMS}`{=tex} \]
-
-Simulink produced approximately 3.328 kA peak.
-
-Because the Specialized Power Systems phasor representation is
-peak-based:
-
-\[ I\_{RMS}=`\frac{I_{peak}}{\sqrt{2}}`{=tex} \]
-
-giving approximately:
-
-\[ I\_{Simulink}`\approx2.353`{=tex}`\text{ kA RMS}`{=tex} \]
-
-Difference:
-
-\[ `\boxed{\approx0.04\%}`{=tex} \]
-
-------------------------------------------------------------------------
-
-## 14.3 LG fault at Bus 3
-
-MATLAB:
-
-\[ I_A`\approx2.291`{=tex}`\text{ kA RMS}`{=tex} \]
-
-Simulink:
-
-\[ I_A`\approx2.334`{=tex}`\text{ kA RMS}`{=tex} \]
-
-Difference:
-
-\[ `\boxed{\approx1.86\%}`{=tex} \]
-
-The B- and C-phase currents were negligible, consistent with an A-G
-fault.
-
-------------------------------------------------------------------------
-
-## 14.4 LLG fault at Bus 4
-
-For the B-C-G fault:
-
-  Phase     MATLAB RMS   Simulink RMS
-  ------- ------------ --------------
-  A          ≈0.450 kA             ≈0
-  B           2.391 kA       3.078 kA
-  C           2.248 kA       3.051 kA
-
-The Simulink sequence currents were approximately:
-
-  Sequence     Simulink RMS   MATLAB analytical RMS
-  ---------- -------------- -----------------------
-  (I_0)            1.304 kA                0.783 kA
-  (I_1)            2.014 kA                1.546 kA
-  (I_2)            0.710 kA                0.765 kA
-
-The larger discrepancy for the LLG case is associated with the
-representation of generator sequence impedances. The analytical model
-explicitly uses independent (Z_1), (Z_2), and (Z_0) generator
-impedances, while the standard Three-Phase Source blocks used in the
-Simulink validation do not reproduce the same independent
-sequence-source specification.
-
-Therefore, the LLG case is treated as a qualitative/partial cross-check
-rather than an exact numerical validation.
-
-------------------------------------------------------------------------
-
-# 15. Validation Summary
-
-  Validation                    Result
-  ----------------------------- --------------------------------------------------
-  Sequence transformation       Validated
-  Ybus/Zbus symmetry            Validated
-  (YZ=I) check                  Validated
-  Fault boundary conditions     Passed
-  Positive-sequence impedance   0.21% difference
-  3φ Bus-3 fault                \~0.04% difference
-  LG Bus-3 fault                \~1.86% difference
-  LLG Bus-4 fault               Larger deviation due to source sequence modeling
-
-------------------------------------------------------------------------
-
-
-------------------------------------------------------------------------
-
-# 16. Requirements
-
-### Software
-
--   MATLAB R2021a or compatible MATLAB release
--   Simulink
--   Simscape
--   Simscape Electrical / Specialized Power Systems
-
-### MATLAB knowledge
-
-The project assumes familiarity with:
-
--   Complex numbers and phasors
--   Matrix operations
--   Per-unit systems
--   Ybus/Zbus formation
--   Symmetrical components
--   Power-system fault analysis
--   Basic Simulink modeling
-
-------------------------------------------------------------------------
-
-
-------------------------------------------------------------------------
-
-# 17. Key Engineering Insights
-
-### 1. Zbus is convenient for fault analysis
-
-Once the sequence Zbus matrices are available, a fault can be applied at
-any bus using the appropriate diagonal Zbus elements and Zbus columns.
-
-### 2. Fault type determines sequence-network interconnection
-
--   3φ → positive sequence only
--   LG → all three sequence networks in series
--   LL → positive and negative sequence
--   LLG → all three sequence networks with a parallel combination
-
-### 3. Zero-sequence connectivity is critical for ground faults
-
-The Δ--Yg transformer prevents zero-sequence current from passing
-directly from the grounded-wye transmission side into the delta
-generator side.
-
-### 4. Ground faults can exceed 3φ faults
-
-A ground fault is not necessarily less severe than a 3φ fault. When the
-zero-sequence impedance is sufficiently low, LG fault current can exceed
-the 3φ fault current.
-
-### 5. Network topology affects fault level
-
-Removing line 2--4 changes the Zbus matrices and therefore changes the
-fault level at every bus, with the largest observed 3φ change occurring
-at Bus 4.
-
-### 6. Per-unit analysis simplifies multi-voltage-level systems
-
-The 11-kV and 132-kV portions can be analyzed in a common 100-MVA
-per-unit system, with actual currents recovered using the appropriate
-bus current base.
-
-------------------------------------------------------------------------
-
-# 18. Limitations
-
-This project is a study model rather than a full electromagnetic
-transient representation.
-
-The main assumptions are:
-
--   Prefault voltage is fixed at 1.0 pu.
--   Loads are neglected.
--   Shunt capacitance is neglected in the analytical model.
--   Network elements are represented using constant sequence impedances.
--   Faults are represented using ideal sequence-network equations.
--   Generator sequence impedances are assumed rather than obtained from
-    machine models.
--   The Simulink Three-Phase Source blocks do not independently
-    reproduce all specified generator (Z_1), (Z_2), and (Z_0) values.
--   The LLG Simulink case therefore shows a larger numerical difference
-    than the 3φ and LG cases.
-
-The following are intentionally outside the scope of this project:
-
--   Relay coordination
--   CT saturation
--   Distance protection
--   Differential protection
--   Arc-impedance models
--   Electromagnetic transient simulations
--   Real-time protection hardware
--   Large IEEE benchmark systems
-
-------------------------------------------------------------------------
-
-
-------------------------------------------------------------------------
-
-# 19. Recommended Figures
-
-The following figures are recommended for the project report:
-
-1.  Symmetrical-component transformation validation.
-2.  Fault-level table or heatmap.
-3.  Phase-current phasors for representative faults.
-4.  Post-fault voltage profiles.
-5.  Generator contribution to the Bus-3 fault.
-6.  Line-current contribution.
-7.  Fault current versus fault impedance.
-8.  LG current versus generator neutral impedance.
-9.  Δ--Yg versus Yg--Yg LG fault comparison.
-10. Line-outage fault-level comparison.
-11. MATLAB versus Simulink validation comparison.
-
-------------------------------------------------------------------------
-
-# 20. Technologies Used
-
--   MATLAB
--   Simulink
--   Simscape Electrical
--   Specialized Power Systems
--   Ybus/Zbus analysis
--   Symmetrical components
--   Per-unit system
--   Sequence networks
--   Power-system fault analysis
--   Numerical matrix methods
-
-------------------------------------------------------------------------
+---
 
 ## Conclusion
 
-This project implements a complete symmetrical-component-based
-fault-analysis workflow for a custom 5-bus power system.
+The MATLAB model forms positive-, negative-, and zero-sequence Ybus/Zbus matrices and calculates 3φ, LG, LL, and LLG faults at every bus. Further studies cover post-fault voltages, generator and line contributions, fault impedance, neutral grounding, transformer zero-sequence connections, and a line outage.
 
-The MATLAB model forms positive-, negative-, and zero-sequence Ybus/Zbus
-matrices and uses them to calculate 3φ, LG, LL, and LLG faults at every
-bus. Additional studies investigate post-fault voltages, generator and
-line contributions, fault impedance, neutral grounding, transformer
-zero-sequence connections, and line outages.
-
-The positive-sequence network was independently cross-checked in
-Simulink, with the measured Bus-3 positive-sequence impedance differing
-from the analytical result by approximately 0.21%. The 3φ Bus-3 fault
-showed approximately 0.04% difference after converting Simulink peak
-phasors to RMS values, while the LG Bus-3 case differed by approximately
-1.86%.
-
-The LLG Bus-4 case showed a larger numerical deviation because the
-analytical model explicitly represents independent generator positive-,
-negative-, and zero-sequence impedances, whereas the standard
-Three-Phase Source representation used for the Simulink cross-check does
-not reproduce those independent sequence-source parameters. This
-limitation is documented rather than compensated for by altering the
-validated network parameters.
+Simulink cross-checks agree closely with the analytical model: the Bus-3 positive-sequence impedance differs by 0.21%, the Bus-3 3φ current by 0.04%, the Bus-3 LG current by about 1.9%, and the Bus-4 LLG phase currents by about 0.3%.
